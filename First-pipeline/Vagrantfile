@@ -4,9 +4,9 @@
 Vagrant.configure("2") do |config|
   # jenkins server
   config.vm.define "jenkins-pipeline" do |jenkins|
-    jenkins.vm.box = "debian/buster64"
+    jenkins.vm.box = "debian/bookworm64"
     jenkins.vm.hostname = "jenkins-pipeline"
-    jenkins.vm.box_url = "debian/buster64"
+    jenkins.vm.box_url = "debian/bookworm64"
     jenkins.vm.network :private_network, ip: "192.168.10.2"
     jenkins.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
