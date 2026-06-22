@@ -1,0 +1,7 @@
+# QUOI    : Namespace dédié pour isoler les ressources de ce projet.
+# POURQUOI: Évite de polluer le namespace "default" du cluster, et permet
+#           de supprimer toute la démo d'un coup (kubectl delete ns portfolio).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portfolio

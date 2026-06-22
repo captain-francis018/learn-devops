@@ -1,0 +1,74 @@
+# QUOI    : API backend Node.js (Deployment + Service).
+# POURQUOI: Le Service passe en NodePort (30081) car le frontend tourne
+#           dans le NAVIGATEUR de l'utilisateur, pas dans le cluster — il
+#           ne peut donc pas résoudre le nom interne "backend". Il faut une
+#           adresse joignable depuis l'extérieur du cluster.
+#           2 replicas : composant stateless, donc safe de dupliquer même
+#           sur un seul node — si un pod redémarre, l'autre répond pendant
+#           ce temps (auto-réparation visible).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: portfolio
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: rimka03/portfolio-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: password
+        - name: MONGODB_URI
+          value: "mongodb://admin:$(MONGO_PASSWORD)@mongodb:27017/portfolio?authSource=admin"
+        - name: PORT
+          value: "5000"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        # POURQUOI tcpSocket et pas httpGet /health : on ne sait pas si
+        # l'appli expose un endpoint /health. Si c'est le cas, REMPLACE
+        # ces deux probes par :
+        #   httpGet: { path: /health, port: 5000 }
+        # qui détecte mieux un backend "up mais cassé" (ex: Mongo down).
+        readinessProbe:
+          tcpSocket:
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: portfolio
+spec:
+  selector:
+    app: backend
+  type: NodePort
+  ports:
+  - port: 5000
+    targetPort: 5000
+    nodePort: 30081

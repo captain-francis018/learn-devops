@@ -1,0 +1,12 @@
+# Secret réel — JAMAIS commité. Seule la version .example.yaml est versionnée.
+k8s/mongodb-secret.yaml
+
+# Fichiers générés par Vagrant
+.vagrant/
+*.log
+
+# Kubeconfig copié localement par le provisioning
+.kube/
+
+# Divers
+.DS_Store

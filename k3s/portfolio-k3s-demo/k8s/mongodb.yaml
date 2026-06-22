@@ -1,0 +1,84 @@
+# QUOI    : Base de données MongoDB (PVC + Deployment + Service interne).
+# POURQUOI: Stocke les données de l'appli. Service de type ClusterIP car
+#           seul le backend (à l'intérieur du cluster) doit y accéder —
+#           jamais directement depuis l'extérieur.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: portfolio
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: portfolio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "admin"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: password
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+        # POURQUOI des resources : sur une seule VM/conteneur, Mongo ne doit
+        # pas pouvoir affamer le backend/frontend en RAM/CPU.
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        # POURQUOI une probe TCP : Mongo n'expose pas d'endpoint HTTP de
+        # santé simple par défaut, donc on vérifie juste que le port
+        # 27017 répond. Suffisant pour détecter un Mongo qui a planté.
+        readinessProbe:
+          tcpSocket:
+            port: 27017
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 27017
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mongodb-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: portfolio
+spec:
+  selector:
+    app: mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017

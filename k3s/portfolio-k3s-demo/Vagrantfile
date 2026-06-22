@@ -1,0 +1,69 @@
+# =============================================================================
+# Vagrantfile — Lab K3s autonome (1 VM)
+# =============================================================================
+# QUOI   : Une seule VM Debian 12 avec K3s installé et prêt à déployer
+#          l'application portfolio (React + Node.js + MongoDB).
+# POURQUOI : Pour que n'importe qui clonant ce repo GitHub puisse reproduire
+#          la démo avec une seule commande (`vagrant up`), sans dépendre
+#          d'une infrastructure CI/CD externe.
+# COMMENT  : Vagrant provisionne la VM, installe K3s via le script officiel,
+#          puis on déploie les manifests présents dans k8s/.
+# =============================================================================
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bookworm64"
+  config.vm.hostname = "k3s-demo"
+
+  # Réseau privé (host-only) avec IP fixe : VirtualBox crée un adaptateur
+  # dédié qui permet une communication DIRECTE hôte <-> VM, sans avoir
+  # besoin de forwarded_port. L'IP est fixe pour rester reproductible.
+  config.vm.network "private_network", ip: "192.168.56.10"
+
+  # Ressources : K3s + MongoDB + backend + frontend tournent confortablement
+  # avec 2 vCPU / 4 Go. Ajuste si ta machine hôte est limitée.
+  config.vm.provider "virtualbox" do |vb|
+    vb.name   = "k3s-demo"
+    vb.memory = 4096
+    vb.cpus   = 2
+  end
+
+  # Synchronise le dossier du projet (où se trouve ce Vagrantfile et k8s/)
+  # vers /vagrant dans la VM, pour pouvoir lancer kubectl apply directement.
+  config.vm.synced_folder ".", "/vagrant"
+
+  config.vm.provision "shell", inline: <<-SHELL
+    set -e
+
+    echo ">>> Mise à jour du système"
+    apt-get update -y
+
+    echo ">>> Installation des dépendances (curl)"
+    # POURQUOI : la box debian/bookworm64 n'a pas curl préinstallé,
+    # et "apt-get update" ne fait que rafraîchir la liste des paquets,
+    # il n'installe rien — il faut l'installer explicitement.
+    apt-get install -y curl
+
+    echo ">>> Installation de K3s (mode serveur, sans Traefik)"
+    # --write-kubeconfig-mode 644 : permet à l'utilisateur vagrant de lire
+    # le kubeconfig sans sudo.
+    # --disable traefik : on gère l'exposition nous-mêmes via NodePort
+    # (cf. k8s/frontend.yaml), pour rester pédagogique et explicite.
+    curl -sfL https://get.k3s.io | sh -s - \
+      --write-kubeconfig-mode 644 \
+      --disable traefik
+
+    echo ">>> Attente que K3s soit prêt"
+    until kubectl get nodes >/dev/null 2>&1; do sleep 2; done
+
+    echo ">>> Alias kubectl pratique"
+    echo "alias k=kubectl" >> /home/vagrant/.bashrc
+
+    echo ">>> Copie du kubeconfig accessible côté hôte (optionnel)"
+    mkdir -p /vagrant/.kube
+    cp /etc/rancher/k3s/k3s.yaml /vagrant/.kube/config
+    sed -i "s/127.0.0.1/192.168.56.10/" /vagrant/.kube/config
+
+    echo ">>> K3s installé. Test :"
+    kubectl get nodes -o wide
+  SHELL
+end
