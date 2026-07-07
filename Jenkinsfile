@@ -233,7 +233,20 @@ stage('Deploy to Kubernetes') {
             KUBECTL="${KUBECTL_BIN}"
             
             echo "Vérification de la connexion K3s..."
-            $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
+            RETRIES=5
+            for i in $(seq 1 $RETRIES); do
+                if $KUBECTL cluster-info > /dev/null 2>&1; then
+                    echo "Connexion K3s OK (tentative $i/$RETRIES)"
+                    break
+                fi
+                if [ "$i" -eq "$RETRIES" ]; then
+                    echo "Erreur: Impossible de se connecter au cluster K3s après $RETRIES tentatives"
+                    $KUBECTL cluster-info
+                    exit 1
+                fi
+                echo "Tentative $i/$RETRIES échouée, nouvelle tentative dans 5s..."
+                sleep 5
+            done
             
             # Créer le namespace s'il n'existe pas
             $KUBECTL create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | $KUBECTL apply -f -
