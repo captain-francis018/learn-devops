@@ -22,7 +22,7 @@ pipeline {
         SONAR_SERVER        = 'sonarqube-server'
         
         // ── KUBERNETES ───────────────────────────────────
-        KUBECONFIG          = '/etc/rancher/k3s/k3s.yaml'
+        KUBECONFIG          = '/var/lib/jenkins/.kube/config'
         KUBECTL_BIN         = '/usr/local/bin/kubectl'
         K8S_NAMESPACE       = 'default'
         K8S_TIMEOUT         = '120s'
@@ -34,7 +34,7 @@ pipeline {
         
         // ── EMAILS ───────────────────────────────────────
         ADMIN_EMAIL         = 'abdoukarimsy018@gmail.com'
-        SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
+        //SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
     }
 
     stages {
@@ -72,17 +72,13 @@ pipeline {
                     userRemoteConfigs: [[
                         url: "${GIT_REPO}",
                         credentialsId: "${GIT_CREDS}"
-                    ]],
-                    extensions: [
-                        [$class: 'SparseCheckoutPaths', 
-                         sparseCheckoutPaths: [[path: 'Jenkins_et_Sonarqube/']]]
-                    ]
+                    ]]
                 ])
                 
                 script {
                     env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     env.GIT_COMMIT_MSG = sh(script: "git log -1 --pretty=%B", returnStdout: true).trim()
-                    echo "Code récupéré du dossier Jenkins_et_Sonarqube (commit: ${env.GIT_COMMIT_SHORT})"
+                    echo "Code récupéré (commit: ${env.GIT_COMMIT_SHORT})"
                 }
             }
         }
@@ -239,6 +235,17 @@ pipeline {
                     
                     # Vérifier la connexion K3s
                     echo "Vérification de la connexion K3s..."
+                                    sh '''
+                    echo "=== DEBUG ENV ==="
+                    env | sort
+
+                    echo "=== DEBUG KUBECTL VERBEUX ==="
+                    /usr/local/bin/kubectl --v=8 cluster-info 2>&1 | head -100
+
+                    KUBECTL="${KUBECTL_BIN}"
+                    echo "Vérification de la connexion K3s..."
+                    $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
+                '''
                     $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
                     
                     # Créer le namespace s'il n'existe pas
@@ -313,105 +320,32 @@ pipeline {
         success {
             script {
                 echo "Pipeline réussi — Portfolio déployé avec succès"
+                echo "Build #${env.BUILD_NUMBER} réussi"
                 
+                // Notification email (commentée si le plugin n'est pas configuré)
+                /*
                 emailext (
-                    subject: "SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body style="font-family: Arial, sans-serif;">
-                        <h2 style="color: green;">Déploiement Réussi</h2>
-                        <table style="border-collapse: collapse; width: 100%;">
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Projet</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Build</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">#${env.BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Commit</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.GIT_COMMIT_SHORT}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Durée</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${currentBuild.durationString}</td>
-                            </tr>
-                        </table>
-                        
-                        <h3>Images Docker Hub</h3>
-                        <ul>
-                            <li>rimka03/portfolio-backend:${env.BUILD_NUMBER}</li>
-                            <li>rimka03/portfolio-backend:latest</li>
-                            <li>rimka03/portfolio-frontend:${env.BUILD_NUMBER}</li>
-                            <li>rimka03/portfolio-frontend:latest</li>
-                        </ul>
-                        
-                        <h3>Liens</h3>
-                        <ul>
-                            <li><a href="${env.BUILD_URL}">Jenkins Build</a></li>
-                            <li><a href="${env.BUILD_URL}console">Build Logs</a></li>
-                        </ul>
-                    </body>
-                    </html>
-                    """,
-                    mimeType: 'text/html',
-                    to: "${ADMIN_EMAIL}"
+                    subject: "SUCCÈS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a été exécuté avec succès.",
+                    to: "abdoukarimsy018@gmail.com"
                 )
+                */
             }
         }
 
         failure {
             script {
                 echo "Pipeline échoué — Veuillez consulter les logs"
+                echo "Build #${env.BUILD_NUMBER} échoué"
                 
+                // Notification email (commentée si le plugin n'est pas configuré)
+                /*
                 emailext (
-                    subject: "FAILURE - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body style="font-family: Arial, sans-serif;">
-                        <h2 style="color: red;">Déploiement Échoué</h2>
-                        <table style="border-collapse: collapse; width: 100%;">
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Projet</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Build</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">#${env.BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Commit</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.GIT_COMMIT_SHORT}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Durée</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${currentBuild.durationString}</td>
-                            </tr>
-                        </table>
-                        
-                        <h3>Problèmes Détectés</h3>
-                        <p>Le pipeline a échoué. Consultez les logs pour plus de détails.</p>
-                        
-                        <h3>Actions Recommandées</h3>
-                        <ol>
-                            <li>Accédez au <a href="${env.BUILD_URL}console">logs du build</a></li>
-                            <li>Corrigez l'erreur identifiée</li>
-                            <li>Commitez et poussez les corrections</li>
-                            <li>Le pipeline redémarrera automatiquement</li>
-                        </ol>
-                        
-                        <h3>Liens</h3>
-                        <ul>
-                            <li><a href="${env.BUILD_URL}">Jenkins Build</a></li>
-                            <li><a href="${env.BUILD_URL}console">Build Logs</a></li>
-                        </ul>
-                    </body>
-                    </html>
-                    """,
-                    mimeType: 'text/html',
-                    to: "${ADMIN_EMAIL}"
+                    subject: "ÉCHEC - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a échoué. Veuillez vérifier les logs pour plus de détails.",
+                    to: "abdoukarimsy018@gmail.com"
                 )
+                */
             }
         }
 
@@ -435,9 +369,6 @@ pipeline {
                     '''
                 }
                 */
-                
-                // Nettoyage
-                cleanWs()
             }
         }
         
