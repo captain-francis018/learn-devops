@@ -34,7 +34,7 @@ pipeline {
         
         // ── EMAILS ───────────────────────────────────────
         ADMIN_EMAIL         = 'abdoukarimsy018@gmail.com'
-        SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
+       // SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
     }
 
     stages {
