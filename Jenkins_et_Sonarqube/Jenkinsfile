@@ -28,7 +28,7 @@ pipeline {
         K8S_TIMEOUT         = '120s'
         
         // ── GITHUB ───────────────────────────────────────
-        GIT_REPO            = 'https://github.com/captain-francis018/projet-porfolio.git'
+        GIT_REPO            = 'https://github.com/captain-francis018/learn-devops.git'
         GIT_BRANCH          = 'main'
         GIT_CREDS           = 'github-credentials'
         
@@ -72,13 +72,17 @@ pipeline {
                     userRemoteConfigs: [[
                         url: "${GIT_REPO}",
                         credentialsId: "${GIT_CREDS}"
-                    ]]
+                    ]],
+                    extensions: [
+                        [$class: 'SparseCheckoutPaths', 
+                         sparseCheckoutPaths: [[path: 'Jenkins_et_Sonarqube/']]]
+                    ]
                 ])
                 
                 script {
                     env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     env.GIT_COMMIT_MSG = sh(script: "git log -1 --pretty=%B", returnStdout: true).trim()
-                    echo "Code récupéré (commit: ${env.GIT_COMMIT_SHORT})"
+                    echo "Code récupéré du dossier Jenkins_et_Sonarqube (commit: ${env.GIT_COMMIT_SHORT})"
                 }
             }
         }
@@ -90,10 +94,10 @@ pipeline {
                 
                 sh '''
                     echo "Backend..."
-                    cd backend && npm install --legacy-peer-deps && cd ..
+                    cd Jenkins_et_Sonarqube/backend && npm install --legacy-peer-deps && cd ../..
                     
                     echo "Frontend..."
-                    cd frontend && npm install --legacy-peer-deps && cd ..
+                    cd Jenkins_et_Sonarqube/frontend && npm install --legacy-peer-deps && cd ../..
                     
                     echo "Dépendances installées"
                 '''
@@ -109,7 +113,7 @@ pipeline {
                     withCredentials([string(credentialsId: "${SONAR_CREDS}", variable: 'SONAR_TOKEN')]) {
                         sh '''
                             echo "Analyse Backend..."
-                            cd backend
+                            cd Jenkins_et_Sonarqube/backend
                             npx sonar-scanner \
                                 -Dsonar.projectKey=portfolio-backend \
                                 -Dsonar.projectName="Portfolio Backend" \
@@ -118,10 +122,10 @@ pipeline {
                                 -Dsonar.exclusions=node_modules/**,coverage/** \
                                 -Dsonar.host.url=${SONAR_URL} \
                                 -Dsonar.login=${SONAR_TOKEN}
-                            cd ..
+                            cd ../..
                             
                             echo "Analyse Frontend..."
-                            cd frontend
+                            cd Jenkins_et_Sonarqube/frontend
                             npx sonar-scanner \
                                 -Dsonar.projectKey=portfolio-frontend \
                                 -Dsonar.projectName="Portfolio Frontend" \
@@ -130,7 +134,7 @@ pipeline {
                                 -Dsonar.exclusions=node_modules/**,dist/** \
                                 -Dsonar.host.url=${SONAR_URL} \
                                 -Dsonar.login=${SONAR_TOKEN}
-                            cd ..
+                            cd ../..
                             
                             echo "Analyses terminées"
                         '''
@@ -162,7 +166,9 @@ pipeline {
                     docker image prune -f --filter "dangling=true" || true
                     
                     # Build des images
+                    cd Jenkins_et_Sonarqube
                     docker compose build --no-cache
+                    cd ..
                     
                     # Vérifier que les images existent
                     echo "Images construites avec succès"
@@ -186,8 +192,10 @@ pipeline {
                         echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
                         
                         # Récupérer les IDs des images
+                        cd Jenkins_et_Sonarqube
                         BACKEND_IMAGE=$(docker compose config --images | grep backend | head -1)
                         FRONTEND_IMAGE=$(docker compose config --images | grep frontend | head -1)
+                        cd ..
                         
                         if [ -z "$BACKEND_IMAGE" ] || [ -z "$FRONTEND_IMAGE" ]; then
                             echo "Erreur: Les images n'ont pas pu être trouvées"
@@ -238,10 +246,10 @@ pipeline {
                     
                     # Appliquer les manifests
                     echo "Déploiement des manifests Kubernetes..."
-                    $KUBECTL apply -f k8s/mongodb-secret.yaml
-                    $KUBECTL apply -f k8s/mongodb.yaml
-                    $KUBECTL apply -f k8s/backend.yaml
-                    $KUBECTL apply -f k8s/frontend.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb-secret.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/backend.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/frontend.yaml
                     
                     echo "Attente du déploiement..."
                     $KUBECTL rollout restart deployment/backend
