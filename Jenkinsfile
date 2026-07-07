@@ -228,43 +228,34 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 echo "Déploiement sur Kubernetes..."
-                
+
                 sh '''
-                    # Utiliser le binaire correct de kubectl
-                    KUBECTL="${KUBECTL_BIN}"
-                    
-                    # Vérifier la connexion K3s
-                    echo "Vérification de la connexion K3s..."
-                                    sh '''
                     echo "=== DEBUG ENV ==="
                     env | sort
 
                     echo "=== DEBUG KUBECTL VERBEUX ==="
-                    /usr/local/bin/kubectl --v=8 cluster-info 2>&1 | head -100
+                    /usr/local/bin/kubectl --v=8 cluster-info 2>&1 | head -n 100
 
                     KUBECTL="${KUBECTL_BIN}"
+
                     echo "Vérification de la connexion K3s..."
                     $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
-                '''
-                    $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
-                    
-                    # Créer le namespace s'il n'existe pas
+
                     $KUBECTL create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | $KUBECTL apply -f -
-                    
-                    # Appliquer les manifests
+
                     echo "Déploiement des manifests Kubernetes..."
                     $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb-secret.yaml
                     $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb.yaml
                     $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/backend.yaml
                     $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/frontend.yaml
-                    
+
                     echo "Attente du déploiement..."
                     $KUBECTL rollout restart deployment/backend
                     $KUBECTL rollout restart deployment/frontend
-                    
+
                     $KUBECTL rollout status deployment/backend --timeout=${K8S_TIMEOUT}
                     $KUBECTL rollout status deployment/frontend --timeout=${K8S_TIMEOUT}
-                    
+
                     echo "Déploiement Kubernetes terminé"
                 '''
             }
