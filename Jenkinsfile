@@ -309,105 +309,32 @@ pipeline {
         success {
             script {
                 echo "Pipeline réussi — Portfolio déployé avec succès"
+                echo "Build #${env.BUILD_NUMBER} réussi"
                 
+                // Notification email (commentée si le plugin n'est pas configuré)
+                /*
                 emailext (
-                    subject: "SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body style="font-family: Arial, sans-serif;">
-                        <h2 style="color: green;">Déploiement Réussi</h2>
-                        <table style="border-collapse: collapse; width: 100%;">
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Projet</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Build</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">#${env.BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Commit</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.GIT_COMMIT_SHORT}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Durée</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${currentBuild.durationString}</td>
-                            </tr>
-                        </table>
-                        
-                        <h3>Images Docker Hub</h3>
-                        <ul>
-                            <li>rimka03/portfolio-backend:${env.BUILD_NUMBER}</li>
-                            <li>rimka03/portfolio-backend:latest</li>
-                            <li>rimka03/portfolio-frontend:${env.BUILD_NUMBER}</li>
-                            <li>rimka03/portfolio-frontend:latest</li>
-                        </ul>
-                        
-                        <h3>Liens</h3>
-                        <ul>
-                            <li><a href="${env.BUILD_URL}">Jenkins Build</a></li>
-                            <li><a href="${env.BUILD_URL}console">Build Logs</a></li>
-                        </ul>
-                    </body>
-                    </html>
-                    """,
-                    mimeType: 'text/html',
-                    to: "${ADMIN_EMAIL}"
+                    subject: "SUCCÈS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a été exécuté avec succès.",
+                    to: "abdoukarimsy018@gmail.com"
                 )
+                */
             }
         }
 
         failure {
             script {
                 echo "Pipeline échoué — Veuillez consulter les logs"
+                echo "Build #${env.BUILD_NUMBER} échoué"
                 
+                // Notification email (commentée si le plugin n'est pas configuré)
+                /*
                 emailext (
-                    subject: "FAILURE - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body style="font-family: Arial, sans-serif;">
-                        <h2 style="color: red;">Déploiement Échoué</h2>
-                        <table style="border-collapse: collapse; width: 100%;">
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Projet</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Build</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">#${env.BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background-color: #f0f0f0;">
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Commit</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${env.GIT_COMMIT_SHORT}</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;"><b>Durée</b></td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${currentBuild.durationString}</td>
-                            </tr>
-                        </table>
-                        
-                        <h3>Problèmes Détectés</h3>
-                        <p>Le pipeline a échoué. Consultez les logs pour plus de détails.</p>
-                        
-                        <h3>Actions Recommandées</h3>
-                        <ol>
-                            <li>Accédez au <a href="${env.BUILD_URL}console">logs du build</a></li>
-                            <li>Corrigez l'erreur identifiée</li>
-                            <li>Commitez et poussez les corrections</li>
-                            <li>Le pipeline redémarrera automatiquement</li>
-                        </ol>
-                        
-                        <h3>Liens</h3>
-                        <ul>
-                            <li><a href="${env.BUILD_URL}">Jenkins Build</a></li>
-                            <li><a href="${env.BUILD_URL}console">Build Logs</a></li>
-                        </ul>
-                    </body>
-                    </html>
-                    """,
-                    mimeType: 'text/html',
-                    to: "${ADMIN_EMAIL}"
+                    subject: "ÉCHEC - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a échoué. Veuillez vérifier les logs pour plus de détails.",
+                    to: "abdoukarimsy018@gmail.com"
                 )
+                */
             }
         }
 
@@ -431,9 +358,6 @@ pipeline {
                     '''
                 }
                 */
-                
-                // Nettoyage
-                cleanWs()
             }
         }
         
