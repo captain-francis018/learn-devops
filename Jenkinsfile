@@ -34,7 +34,7 @@ pipeline {
         
         // ── EMAILS ───────────────────────────────────────
         ADMIN_EMAIL         = 'abdoukarimsy018@gmail.com'
-       // SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
+        //SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
     }
 
     stages {
@@ -235,6 +235,17 @@ pipeline {
                     
                     # Vérifier la connexion K3s
                     echo "Vérification de la connexion K3s..."
+                                    sh '''
+                    echo "=== DEBUG ENV ==="
+                    env | sort
+
+                    echo "=== DEBUG KUBECTL VERBEUX ==="
+                    /usr/local/bin/kubectl --v=8 cluster-info 2>&1 | head -100
+
+                    KUBECTL="${KUBECTL_BIN}"
+                    echo "Vérification de la connexion K3s..."
+                    $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
+                '''
                     $KUBECTL cluster-info || (echo "Erreur: Impossible de se connecter au cluster K3s" && exit 1)
                     
                     # Créer le namespace s'il n'existe pas
