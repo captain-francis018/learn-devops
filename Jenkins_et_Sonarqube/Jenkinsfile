@@ -83,57 +83,71 @@ pipeline {
             }
         }
 
-        // ── STAGE 3 : INSTALL DÉPENDANCES ───────────────────────
+        // ── STAGE 3 : INSTALL DÉPENDANCES (PARALLÈLE) ───────────
         stage('Install Dependencies') {
             steps {
-                echo "Installation des dépendances..."
+                echo "Installation des dépendances (backend + frontend en parallèle)..."
                 
-                sh '''
-                    echo "Backend..."
-                    cd Jenkins_et_Sonarqube/backend && npm install --legacy-peer-deps && cd ../..
-                    
-                    echo "Frontend..."
-                    cd Jenkins_et_Sonarqube/frontend && npm install --legacy-peer-deps && cd ../..
-                    
-                    echo "Dépendances installées"
-                '''
+                parallel(
+                    "Backend": {
+                        sh '''
+                            echo "Backend..."
+                            cd Jenkins_et_Sonarqube/backend
+                            npm install --legacy-peer-deps
+                        '''
+                    },
+                    "Frontend": {
+                        sh '''
+                            echo "Frontend..."
+                            cd Jenkins_et_Sonarqube/frontend
+                            npm install --legacy-peer-deps
+                        '''
+                    }
+                )
+                
+                echo "Dépendances installées"
             }
         }
 
-        // ── STAGE 4 : SONARQUBE ANALYSIS ────────────────────────
+        // ── STAGE 4 : SONARQUBE ANALYSIS (PARALLÈLE) ────────────
         stage('SonarQube Analysis') {
             steps {
-                echo "Analyse qualité du code avec SonarQube..."
+                echo "Analyse qualité du code avec SonarQube (backend + frontend en parallèle)..."
                 
                 withSonarQubeEnv("${SONAR_SERVER}") {
                     withCredentials([string(credentialsId: "${SONAR_CREDS}", variable: 'SONAR_TOKEN')]) {
-                        sh '''
-                            echo "Analyse Backend..."
-                            cd Jenkins_et_Sonarqube/backend
-                            npx sonar-scanner \
-                                -Dsonar.projectKey=portfolio-backend \
-                                -Dsonar.projectName="Portfolio Backend" \
-                                -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                -Dsonar.sources=. \
-                                -Dsonar.exclusions=node_modules/**,coverage/** \
-                                -Dsonar.host.url=${SONAR_URL} \
-                                -Dsonar.login=${SONAR_TOKEN}
-                            cd ../..
-                            
-                            echo "Analyse Frontend..."
-                            cd Jenkins_et_Sonarqube/frontend
-                            npx sonar-scanner \
-                                -Dsonar.projectKey=portfolio-frontend \
-                                -Dsonar.projectName="Portfolio Frontend" \
-                                -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                -Dsonar.sources=src \
-                                -Dsonar.exclusions=node_modules/**,dist/** \
-                                -Dsonar.host.url=${SONAR_URL} \
-                                -Dsonar.login=${SONAR_TOKEN}
-                            cd ../..
-                            
-                            echo "Analyses terminées"
-                        '''
+                        parallel(
+                            "Backend": {
+                                sh '''
+                                    echo "Analyse Backend..."
+                                    cd Jenkins_et_Sonarqube/backend
+                                    npx sonar-scanner \
+                                        -Dsonar.projectKey=portfolio-backend \
+                                        -Dsonar.projectName="Portfolio Backend" \
+                                        -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                        -Dsonar.sources=. \
+                                        -Dsonar.exclusions=node_modules/**,coverage/** \
+                                        -Dsonar.host.url=${SONAR_URL} \
+                                        -Dsonar.login=${SONAR_TOKEN}
+                                '''
+                            },
+                            "Frontend": {
+                                sh '''
+                                    echo "Analyse Frontend..."
+                                    cd Jenkins_et_Sonarqube/frontend
+                                    npx sonar-scanner \
+                                        -Dsonar.projectKey=portfolio-frontend \
+                                        -Dsonar.projectName="Portfolio Frontend" \
+                                        -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                        -Dsonar.sources=src \
+                                        -Dsonar.exclusions=node_modules/**,dist/** \
+                                        -Dsonar.host.url=${SONAR_URL} \
+                                        -Dsonar.login=${SONAR_TOKEN}
+                                '''
+                            }
+                        )
+                        
+                        echo "Analyses terminées"
                     }
                 }
             }
@@ -152,18 +166,19 @@ pipeline {
             }
         }
 
-        // ── STAGE 6 : BUILD DOCKER ──────────────────────────────
+        // ── STAGE 6 : BUILD DOCKER (AVEC CACHE) ─────────────────
         stage('Build Docker Images') {
             steps {
                 echo "Construction des images Docker..."
                 
                 sh '''
-                    # Nettoyer les images précédentes
+                    # Nettoyer les images précédentes (dangling uniquement)
                     docker image prune -f --filter "dangling=true" || true
                     
-                    # Build des images
+                    # Build des images — cache activé pour accélérer les builds
+                    # (utiliser --no-cache uniquement ponctuellement, ex: job hebdomadaire dédié)
                     cd Jenkins_et_Sonarqube
-                    docker compose build --no-cache
+                    docker compose build
                     cd ..
                     
                     # Vérifier que les images existent
@@ -224,51 +239,51 @@ pipeline {
             }
         }
 
-        // ── STAGE 8 : DEPLOY KUBERNETES ─────────────────────────
-stage('Deploy to Kubernetes') {
-    steps {
-        echo "Déploiement sur Kubernetes..."
-        
-        sh '''
-            KUBECTL="${KUBECTL_BIN}"
-            
-            echo "Vérification de la connexion K3s..."
-            RETRIES=5
-            for i in $(seq 1 $RETRIES); do
-                if $KUBECTL cluster-info > /dev/null 2>&1; then
-                    echo "Connexion K3s OK (tentative $i/$RETRIES)"
-                    break
-                fi
-                if [ "$i" -eq "$RETRIES" ]; then
-                    echo "Erreur: Impossible de se connecter au cluster K3s après $RETRIES tentatives"
-                    $KUBECTL cluster-info
-                    exit 1
-                fi
-                echo "Tentative $i/$RETRIES échouée, nouvelle tentative dans 5s..."
-                sleep 5
-            done
-            
-            # Créer le namespace s'il n'existe pas
-            $KUBECTL create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | $KUBECTL apply -f -
-            
-            # Appliquer les manifests
-            echo "Déploiement des manifests Kubernetes..."
-            $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb-secret.yaml
-            $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb.yaml
-            $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/backend.yaml
-            $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/frontend.yaml
-            
-            echo "Attente du déploiement..."
-            $KUBECTL rollout restart deployment/backend
-            $KUBECTL rollout restart deployment/frontend
-            
-            $KUBECTL rollout status deployment/backend --timeout=${K8S_TIMEOUT}
-            $KUBECTL rollout status deployment/frontend --timeout=${K8S_TIMEOUT}
-            
-            echo "Déploiement Kubernetes terminé"
-        '''
-    }
-}
+        // ── STAGE 8 : DEPLOY KUBERNETES (AVEC RETRY) ────────────
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo "Déploiement sur Kubernetes..."
+                
+                sh '''
+                    KUBECTL="${KUBECTL_BIN}"
+                    
+                    echo "Vérification de la connexion K3s..."
+                    RETRIES=5
+                    for i in $(seq 1 $RETRIES); do
+                        if $KUBECTL cluster-info > /dev/null 2>&1; then
+                            echo "Connexion K3s OK (tentative $i/$RETRIES)"
+                            break
+                        fi
+                        if [ "$i" -eq "$RETRIES" ]; then
+                            echo "Erreur: Impossible de se connecter au cluster K3s après $RETRIES tentatives"
+                            $KUBECTL cluster-info
+                            exit 1
+                        fi
+                        echo "Tentative $i/$RETRIES échouée, nouvelle tentative dans 5s..."
+                        sleep 5
+                    done
+                    
+                    # Créer le namespace s'il n'existe pas
+                    $KUBECTL create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | $KUBECTL apply -f -
+                    
+                    # Appliquer les manifests
+                    echo "Déploiement des manifests Kubernetes..."
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb-secret.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/mongodb.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/backend.yaml
+                    $KUBECTL apply -f Jenkins_et_Sonarqube/Manifeste-k3s/frontend.yaml
+                    
+                    echo "Attente du déploiement..."
+                    $KUBECTL rollout restart deployment/backend
+                    $KUBECTL rollout restart deployment/frontend
+                    
+                    $KUBECTL rollout status deployment/backend --timeout=${K8S_TIMEOUT}
+                    $KUBECTL rollout status deployment/frontend --timeout=${K8S_TIMEOUT}
+                    
+                    echo "Déploiement Kubernetes terminé"
+                '''
+            }
+        }
 
         // ── STAGE 9 : SMOKE TESTS ───────────────────────────────
         stage('Smoke Tests') {
@@ -278,8 +293,9 @@ stage('Deploy to Kubernetes') {
                 sh '''
                     KUBECTL="${KUBECTL_BIN}"
                     
-                    echo "Attente de la stabilisation (10s)..."
-                    sleep 10
+                    echo "Attente que les pods soient prêts (polling actif)..."
+                    $KUBECTL wait --for=condition=ready pod -l app=backend --timeout=30s || echo "Attention: backend pas encore ready"
+                    $KUBECTL wait --for=condition=ready pod -l app=frontend --timeout=30s || echo "Attention: frontend pas encore ready"
                     
                     echo "État des pods :"
                     $KUBECTL get pods
@@ -294,9 +310,9 @@ stage('Deploy to Kubernetes') {
                     echo "Backend port: $BACKEND_PORT"
                     echo "Frontend port: $FRONTEND_PORT"
                     
-                    # Tests API
+                    # Tests API (boucle POSIX-compatible, sans brace expansion)
                     echo "Test API Backend..."
-                    for i in {1..5}; do
+                    for i in 1 2 3 4 5; do
                         if curl -sf http://localhost:$BACKEND_PORT/api/projects > /dev/null; then
                             echo "API Backend OK (tentative $i)"
                             break
