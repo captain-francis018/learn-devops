@@ -111,47 +111,40 @@ pipeline {
             }
         }
 
-        // ── STAGE 4 : SONARQUBE ANALYSIS (PARALLÈLE) ────────────
+        // ── STAGE 4 : SONARQUBE ANALYSIS ────────────────────────
         stage('SonarQube Analysis') {
             steps {
-                echo "Analyse qualité du code avec SonarQube (backend + frontend en parallèle)..."
+                echo "Analyse qualité du code avec SonarQube..."
                 
                 withSonarQubeEnv("${SONAR_SERVER}") {
                     withCredentials([string(credentialsId: "${SONAR_CREDS}", variable: 'SONAR_TOKEN')]) {
-                        script {
-                            parallel(
-                                "Backend": {
-                                    sh '''
-                                        echo "Analyse Backend..."
-                                        cd Jenkins_et_Sonarqube/backend
-                                        npx sonar-scanner \
-                                            -Dsonar.projectKey=portfolio-backend \
-                                            -Dsonar.projectName="Portfolio Backend" \
-                                            -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                            -Dsonar.sources=. \
-                                            -Dsonar.exclusions=node_modules/**,coverage/** \
-                                            -Dsonar.host.url=${SONAR_URL} \
-                                            -Dsonar.login=${SONAR_TOKEN}
-                                    '''
-                                },
-                                "Frontend": {
-                                    sh '''
-                                        echo "Analyse Frontend..."
-                                        cd Jenkins_et_Sonarqube/frontend
-                                        npx sonar-scanner \
-                                            -Dsonar.projectKey=portfolio-frontend \
-                                            -Dsonar.projectName="Portfolio Frontend" \
-                                            -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                            -Dsonar.sources=src \
-                                            -Dsonar.exclusions=node_modules/**,dist/** \
-                                            -Dsonar.host.url=${SONAR_URL} \
-                                            -Dsonar.login=${SONAR_TOKEN}
-                                    '''
-                                }
-                            )
-                        }
-                        
-                        echo "Analyses terminées"
+                        sh '''
+                            echo "Analyse Backend..."
+                            cd Jenkins_et_Sonarqube/backend
+                            npx sonar-scanner \
+                                -Dsonar.projectKey=portfolio-backend \
+                                -Dsonar.projectName="Portfolio Backend" \
+                                -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                -Dsonar.sources=. \
+                                -Dsonar.exclusions=node_modules/**,coverage/** \
+                                -Dsonar.host.url=${SONAR_URL} \
+                                -Dsonar.login=${SONAR_TOKEN}
+                            cd ../..
+                            
+                            echo "Analyse Frontend..."
+                            cd Jenkins_et_Sonarqube/frontend
+                            npx sonar-scanner \
+                                -Dsonar.projectKey=portfolio-frontend \
+                                -Dsonar.projectName="Portfolio Frontend" \
+                                -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                -Dsonar.sources=src \
+                                -Dsonar.exclusions=node_modules/**,dist/** \
+                                -Dsonar.host.url=${SONAR_URL} \
+                                -Dsonar.login=${SONAR_TOKEN}
+                            cd ../..
+                            
+                            echo "Analyses terminées"
+                        '''
                     }
                 }
             }
