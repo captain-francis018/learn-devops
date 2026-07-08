@@ -253,6 +253,16 @@ pipeline {
                         fi
                         if [ "$i" -eq "$RETRIES" ]; then
                             echo "Erreur: Impossible de se connecter au cluster K3s après $RETRIES tentatives"
+                            echo "=== DIAGNOSTIC AUTOMATIQUE ==="
+                            echo "--- Qui écoute sur le port 6443 ---"
+                            sudo ss -tlnp | grep 6443 || echo "ss non disponible ou pas de sudo sans mdp"
+                            echo "--- curl verbeux vers l'API locale ---"
+                            curl -kv https://127.0.0.1:6443/version 2>&1 || true
+                            echo "--- 40 dernières lignes des logs K3s ---"
+                            sudo journalctl -u k3s --no-pager -n 40 || echo "journalctl non disponible"
+                            echo "--- Charge système actuelle ---"
+                            uptime || true
+                            echo "=== FIN DIAGNOSTIC ==="
                             $KUBECTL cluster-info
                             exit 1
                         fi
