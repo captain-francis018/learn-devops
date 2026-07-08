@@ -88,22 +88,24 @@ pipeline {
             steps {
                 echo "Installation des dépendances (backend + frontend en parallèle)..."
                 
-                parallel(
-                    "Backend": {
-                        sh '''
-                            echo "Backend..."
-                            cd Jenkins_et_Sonarqube/backend
-                            npm install --legacy-peer-deps
-                        '''
-                    },
-                    "Frontend": {
-                        sh '''
-                            echo "Frontend..."
-                            cd Jenkins_et_Sonarqube/frontend
-                            npm install --legacy-peer-deps
-                        '''
-                    }
-                )
+                script {
+                    parallel(
+                        "Backend": {
+                            sh '''
+                                echo "Backend..."
+                                cd Jenkins_et_Sonarqube/backend
+                                npm install --legacy-peer-deps
+                            '''
+                        },
+                        "Frontend": {
+                            sh '''
+                                echo "Frontend..."
+                                cd Jenkins_et_Sonarqube/frontend
+                                npm install --legacy-peer-deps
+                            '''
+                        }
+                    )
+                }
                 
                 echo "Dépendances installées"
             }
@@ -116,36 +118,38 @@ pipeline {
                 
                 withSonarQubeEnv("${SONAR_SERVER}") {
                     withCredentials([string(credentialsId: "${SONAR_CREDS}", variable: 'SONAR_TOKEN')]) {
-                        parallel(
-                            "Backend": {
-                                sh '''
-                                    echo "Analyse Backend..."
-                                    cd Jenkins_et_Sonarqube/backend
-                                    npx sonar-scanner \
-                                        -Dsonar.projectKey=portfolio-backend \
-                                        -Dsonar.projectName="Portfolio Backend" \
-                                        -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                        -Dsonar.sources=. \
-                                        -Dsonar.exclusions=node_modules/**,coverage/** \
-                                        -Dsonar.host.url=${SONAR_URL} \
-                                        -Dsonar.login=${SONAR_TOKEN}
-                                '''
-                            },
-                            "Frontend": {
-                                sh '''
-                                    echo "Analyse Frontend..."
-                                    cd Jenkins_et_Sonarqube/frontend
-                                    npx sonar-scanner \
-                                        -Dsonar.projectKey=portfolio-frontend \
-                                        -Dsonar.projectName="Portfolio Frontend" \
-                                        -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                        -Dsonar.sources=src \
-                                        -Dsonar.exclusions=node_modules/**,dist/** \
-                                        -Dsonar.host.url=${SONAR_URL} \
-                                        -Dsonar.login=${SONAR_TOKEN}
-                                '''
-                            }
-                        )
+                        script {
+                            parallel(
+                                "Backend": {
+                                    sh '''
+                                        echo "Analyse Backend..."
+                                        cd Jenkins_et_Sonarqube/backend
+                                        npx sonar-scanner \
+                                            -Dsonar.projectKey=portfolio-backend \
+                                            -Dsonar.projectName="Portfolio Backend" \
+                                            -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                            -Dsonar.sources=. \
+                                            -Dsonar.exclusions=node_modules/**,coverage/** \
+                                            -Dsonar.host.url=${SONAR_URL} \
+                                            -Dsonar.login=${SONAR_TOKEN}
+                                    '''
+                                },
+                                "Frontend": {
+                                    sh '''
+                                        echo "Analyse Frontend..."
+                                        cd Jenkins_et_Sonarqube/frontend
+                                        npx sonar-scanner \
+                                            -Dsonar.projectKey=portfolio-frontend \
+                                            -Dsonar.projectName="Portfolio Frontend" \
+                                            -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                            -Dsonar.sources=src \
+                                            -Dsonar.exclusions=node_modules/**,dist/** \
+                                            -Dsonar.host.url=${SONAR_URL} \
+                                            -Dsonar.login=${SONAR_TOKEN}
+                                    '''
+                                }
+                            )
+                        }
                         
                         echo "Analyses terminées"
                     }
