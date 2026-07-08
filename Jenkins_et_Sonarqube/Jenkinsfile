@@ -243,9 +243,11 @@ pipeline {
                 
                 sh '''
                     KUBECTL="${KUBECTL_BIN}"
+                    echo "Pause de stabilisation réseau post-Docker (iptables)..."
+                    sleep 10
                     
                     echo "Vérification de la connexion K3s..."
-                    RETRIES=5
+                    RETRIES=8
                     for i in $(seq 1 $RETRIES); do
                         if $KUBECTL cluster-info > /dev/null 2>&1; then
                             echo "Connexion K3s OK (tentative $i/$RETRIES)"
