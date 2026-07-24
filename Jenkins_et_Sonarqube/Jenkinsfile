@@ -1,5 +1,8 @@
 pipeline {
-    agent any
+    // Docker, K3s et SonarQube tournent tous sur le master (192.168.30.10)
+    // dans la nouvelle archi Vagrant. On force donc l'exécution sur le
+    // nœud built-in du controller plutôt que sur agent-01/agent-02.
+    agent { label 'built-in' }
     
     // ── CONFIGURATION TIMEOUT GLOBAL ──────────────────────
     options {
@@ -17,12 +20,15 @@ pipeline {
         REGISTRY_CREDS      = 'dokerhub_access'
         
         // ── SONARQUBE ────────────────────────────────────
-        SONAR_URL           = 'http://192.168.30.20:9000'
+        // SonarQube tourne maintenant en Docker sur le master lui-même
+        SONAR_URL           = 'http://192.168.30.10:9000'
         SONAR_CREDS         = 'sonarqube-token'
         SONAR_SERVER        = 'sonarqube-server'
         
         // ── KUBERNETES ───────────────────────────────────
-        KUBECONFIG          = '/var/lib/jenkins/.kube/config'
+        // K3s tourne sur le master, kubeconfig généré par l'installeur K3s
+        // (chmod 644 → lisible directement par l'utilisateur jenkins)
+        KUBECONFIG          = '/etc/rancher/k3s/k3s.yaml'
         KUBECTL_BIN         = '/usr/local/bin/kubectl'
         K8S_NAMESPACE       = 'default'
         K8S_TIMEOUT         = '120s'
