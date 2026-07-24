@@ -17,12 +17,12 @@ pipeline {
         IMAGE_BACKEND       = "${DOCKERHUB_USER}/portfolio-backend"
         IMAGE_FRONTEND      = "${DOCKERHUB_USER}/portfolio-frontend"
         IMAGE_TAG           = "${env.BUILD_NUMBER}"
-        REGISTRY_CREDS      = 'dokerhub_access'
+        REGISTRY_CREDS      = 'dockerhub_access_pc_portable'
         
         // ── SONARQUBE ────────────────────────────────────
         // SonarQube tourne maintenant en Docker sur le master lui-même
         SONAR_URL           = 'http://192.168.30.10:9000'
-        SONAR_CREDS         = 'sonarqube-token'
+        SONAR_CREDS         = 'sanarqube_access'
         SONAR_SERVER        = 'sonarqube-server'
         
         // ── KUBERNETES ───────────────────────────────────
@@ -36,7 +36,7 @@ pipeline {
         // ── GITHUB ───────────────────────────────────────
         GIT_REPO            = 'https://github.com/captain-francis018/learn-devops.git'
         GIT_BRANCH          = 'main'
-        GIT_CREDS           = 'github-credentials'
+        GIT_CREDS           = 'Github-credentials_portable'
         
         // ── EMAILS ───────────────────────────────────────
         ADMIN_EMAIL         = 'abdoukarimsy018@gmail.com'
