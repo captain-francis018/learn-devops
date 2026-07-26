@@ -39,7 +39,7 @@ pipeline {
         GIT_CREDS           = 'Github-credentials_portable'
         
         // ── EMAILS ───────────────────────────────────────
-        ADMIN_EMAIL         = 'abdoukarimsy018@gmail.com'
+        ADMIN_EMAIL         = 'abdoukarimsy1@gmail.com'
         //SLACK_WEBHOOK       = credentials('slack-webhook')  // Optional
     }
 
@@ -352,15 +352,8 @@ pipeline {
             script {
                 echo "Pipeline réussi — Portfolio déployé avec succès"
                 echo "Build #${env.BUILD_NUMBER} réussi"
-                
-                // Notification email (commentée si le plugin n'est pas configuré)
-                /*
-                emailext (
-                    subject: "SUCCÈS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: "Le pipeline a été exécuté avec succès.",
-                    to: "abdoukarimsy018@gmail.com"
-                )
-                */
+                // Pas de notification email en cas de succès (volontaire)
+                // → on ne veut être alerté que sur les échecs, pas à chaque build réussi
             }
         }
 
@@ -369,14 +362,20 @@ pipeline {
                 echo "Pipeline échoué — Veuillez consulter les logs"
                 echo "Build #${env.BUILD_NUMBER} échoué"
                 
-                // Notification email (commentée si le plugin n'est pas configuré)
-                /*
                 emailext (
                     subject: "ÉCHEC - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: "Le pipeline a échoué. Veuillez vérifier les logs pour plus de détails.",
-                    to: "abdoukarimsy018@gmail.com"
+                    body: """
+                        <p><b>Le pipeline a échoué.</b></p>
+                        <ul>
+                            <li><b>Job :</b> ${env.JOB_NAME}</li>
+                            <li><b>Build :</b> #${env.BUILD_NUMBER}</li>
+                            <li><b>Commit :</b> ${env.GIT_COMMIT_SHORT ?: 'N/A'} — ${env.GIT_COMMIT_MSG ?: 'N/A'}</li>
+                            <li><b>Logs :</b> <a href="${env.BUILD_URL}console">${env.BUILD_URL}console</a></li>
+                        </ul>
+                    """,
+                    mimeType: 'text/html',
+                    to: "${ADMIN_EMAIL}"
                 )
-                */
             }
         }
 
